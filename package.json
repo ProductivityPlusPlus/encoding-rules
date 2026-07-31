@@ -1,8 +1,9 @@
 {
   "name": "encoding-rules",
-  "displayName": "encoding-rules",
+  "displayName": "Encoding Rules",
+  "publisher": "ProductivityPlusPlus",
   "description": "Automatic encoding rules based on file paths",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "engines": {
     "vscode": "^1.125.0"
   },
