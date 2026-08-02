@@ -1,2 +1,150 @@
-# encoding-rules
-VS Code extension that automatically opens files with the correct encoding based on path rules.
+# Encoding Rules
+
+A VS Code extension that automatically opens files with the correct encoding based on file path rules.
+
+Useful for legacy projects, imported files, and repositories that contain a mix of UTF-8 and non-UTF-8 text files.
+
+## Features
+
+- Automatically detects matching files when they are opened.
+- Applies a configured encoding based on file path patterns.
+- Works with path-based rules using glob patterns.
+- Helps with legacy files that need a specific encoding.
+- Keeps encoding decisions in VS Code settings.
+
+## Configuration
+
+Add encoding rules in your VS Code settings:
+
+```json
+{
+  "encodingRules.rules": [
+    {
+      "pattern": "**/legacy/**",
+      "encoding": "windows1252"
+    },
+    {
+      "pattern": "**/*.txt",
+      "encoding": "utf8"
+    }
+  ]
+}
+```
+
+Each rule contains:
+
+| Property | Description |
+| --- | --- |
+| `pattern` | File path pattern to match |
+| `encoding` | Encoding to use when opening the file |
+
+## Supported Encodings
+
+Supported encodings depend on VS Code's built-in encoding support.
+
+Common examples:
+
+- `utf8`
+- `utf8bom`
+- `windows1252`
+- `shiftjis`
+- `gbk`
+- `gb18030`
+
+## Glob Patterns
+
+Rules use glob patterns to match files.
+
+Examples:
+
+### Match all text files
+
+```
+**/*.txt
+```
+
+Matches all `.txt` files.
+
+### Match files in a folder
+
+```
+**/legacy/**
+```
+
+Matches all files inside folders named `legacy`.
+
+### Match files inside a source folder
+
+```
+src/**/*.c
+```
+
+Matches C files inside `src` and its subfolders.
+
+## Why?
+
+Many projects still contain files created with older tools and different character encodings.
+
+Manually selecting:
+
+```
+File → Reopen with Encoding
+```
+
+every time a file is opened is repetitive and easy to forget.
+
+Encoding Rules lets you define these choices once.
+
+## Known Limitations
+
+- Encoding detection is not performed. Rules are based on file paths.
+- Incorrect rules may cause files to be opened with the wrong encoding.
+- Some VS Code internal documents may not have normal file paths.
+- The extension does not modify file contents; it only controls how files are opened.
+
+## Development
+
+Clone the repository:
+
+```bash
+git clone https://github.com/ProductivityPlusPlus/encoding-rules.git
+```
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Compile:
+
+```bash
+npm run compile
+```
+
+Run the extension:
+
+Press `F5` in VS Code to launch an Extension Development Host.
+
+## Support
+
+If Encoding Rules saves you time, consider supporting development:
+
+<a href="https://www.buymeacoffee.com/productivityplusplus">
+  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png"
+       alt="Buy Me a Coffee"
+       width="109"
+       height="30">
+</a>
+
+<a href="https://github.com/sponsors/ProductivityPlusPlus">
+  <img src="https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-ea4aaa?logo=github" alt="GitHub Sponsors">
+</a>
+
+Repository:
+
+https://github.com/ProductivityPlusPlus/encoding-rules
+
+## License
+
+MIT License
