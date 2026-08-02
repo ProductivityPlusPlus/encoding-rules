@@ -4,9 +4,33 @@
   "publisher": "ProductivityPlusPlus",
   "description": "Automatic encoding rules based on file paths",
   "version": "0.1.0",
+  "icon": "images/icon.png",
+  "license": "MIT",
+  "homepage": "https://github.com/ProductivityPlusPlus/encoding-rules#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ProductivityPlusPlus/encoding-rules.git"
+  },
+  "funding": {
+    "type": "individual",
+    "url": "https://github.com/sponsors/ProductivityPlusPlus"
+  },
+  "bugs": {
+    "url": "https://github.com/ProductivityPlusPlus/encoding-rules/issues"
+  },
   "engines": {
     "vscode": "^1.125.0"
   },
+  "keywords": [
+    "encoding",
+    "charset",
+    "utf8",
+    "utf-8",
+    "gbk",
+    "shift-jis",
+    "files",
+    "legacy"
+  ],
   "categories": [
     "Other"
   ],
@@ -26,15 +50,17 @@
       "properties": {
         "encodingRules.rules": {
           "type": "array",
-          "description": "File path encoding rules",
+          "description": "Rules for automatic encoding selection",
           "items": {
             "type": "object",
             "properties": {
               "pattern": {
-                "type": "string"
+                "type": "string",
+                "description": "Glob pattern"
               },
               "encoding": {
-                "type": "string"
+                "type": "string",
+                "description": "Encoding name"
               }
             }
           }

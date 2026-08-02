@@ -1,71 +1,150 @@
-# encoding-rules README
+# Encoding Rules
 
-This is the README for your extension "encoding-rules". After writing up a brief description, we recommend including the following sections.
+A VS Code extension that automatically opens files with the correct encoding based on file path rules.
+
+Useful for legacy projects, imported files, and repositories that contain a mix of UTF-8 and non-UTF-8 text files.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+- Automatically detects matching files when they are opened.
+- Applies a configured encoding based on file path patterns.
+- Works with path-based rules using glob patterns.
+- Helps with legacy files that need a specific encoding.
+- Keeps encoding decisions in VS Code settings.
 
-For example if there is an image subfolder under your extension project workspace:
+## Configuration
 
-\!\[feature X\]\(images/feature-x.png\)
+Add encoding rules in your VS Code settings:
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+```json
+{
+  "encodingRules.rules": [
+    {
+      "pattern": "**/legacy/**",
+      "encoding": "windows1252"
+    },
+    {
+      "pattern": "**/*.txt",
+      "encoding": "utf8"
+    }
+  ]
+}
+```
 
-## Requirements
+Each rule contains:
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+| Property | Description |
+| --- | --- |
+| `pattern` | File path pattern to match |
+| `encoding` | Encoding to use when opening the file |
 
-## Extension Settings
+## Supported Encodings
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+Supported encodings depend on VS Code's built-in encoding support.
 
-For example:
+Common examples:
 
-This extension contributes the following settings:
+- `utf8`
+- `utf8bom`
+- `windows1252`
+- `shiftjis`
+- `gbk`
+- `gb18030`
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+## Glob Patterns
 
-## Known Issues
+Rules use glob patterns to match files.
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+Examples:
 
-## Release Notes
+### Match all text files
 
-Users appreciate release notes as you update your extension.
+```
+**/*.txt
+```
 
-### 1.0.0
+Matches all `.txt` files.
 
-Initial release of ...
+### Match files in a folder
 
-### 1.0.1
+```
+**/legacy/**
+```
 
-Fixed issue #.
+Matches all files inside folders named `legacy`.
 
-### 1.1.0
+### Match files inside a source folder
 
-Added features X, Y, and Z.
+```
+src/**/*.c
+```
 
----
+Matches C files inside `src` and its subfolders.
 
-## Following extension guidelines
+## Why?
 
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
+Many projects still contain files created with older tools and different character encodings.
 
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
+Manually selecting:
 
-## Working with Markdown
+```
+File → Reopen with Encoding
+```
 
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
+every time a file is opened is repetitive and easy to forget.
 
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
+Encoding Rules lets you define these choices once.
 
-## For more information
+## Known Limitations
 
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
+- Encoding detection is not performed. Rules are based on file paths.
+- Incorrect rules may cause files to be opened with the wrong encoding.
+- Some VS Code internal documents may not have normal file paths.
+- The extension does not modify file contents; it only controls how files are opened.
 
-**Enjoy!**
+## Development
+
+Clone the repository:
+
+```bash
+git clone https://github.com/ProductivityPlusPlus/encoding-rules.git
+```
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Compile:
+
+```bash
+npm run compile
+```
+
+Run the extension:
+
+Press `F5` in VS Code to launch an Extension Development Host.
+
+## Support
+
+If Encoding Rules saves you time, consider supporting development:
+
+<a href="https://www.buymeacoffee.com/productivityplusplus">
+  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png"
+       alt="Buy Me a Coffee"
+       width="109"
+       height="30">
+</a>
+
+<a href="https://github.com/sponsors/ProductivityPlusPlus">
+  <img src="https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-ea4aaa?logo=github" alt="GitHub Sponsors">
+</a>
+
+Repository:
+
+https://github.com/ProductivityPlusPlus/encoding-rules
+
+## License
+
+MIT License
