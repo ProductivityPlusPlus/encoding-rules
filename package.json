@@ -4,7 +4,7 @@
   "publisher": "ProductivityPlusPlus",
   "description": "Automatic encoding rules based on file paths",
   "version": "0.1.0",
-  "icon": "images/icon.png",
+  "icon": "assets/icon.png",
   "license": "MIT",
   "homepage": "https://github.com/ProductivityPlusPlus/encoding-rules#readme",
   "repository": {
@@ -40,28 +40,19 @@
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
-      {
-        "command": "encodingRules.showCurrentRule",
-        "title": "Encoding Rules: Show Current Rule"
-      }
+
     ],
     "configuration": {
       "title": "Encoding Rules",
       "properties": {
         "encodingRules.rules": {
-          "type": "array",
-          "description": "Rules for automatic encoding selection",
-          "items": {
-            "type": "object",
-            "properties": {
-              "pattern": {
-                "type": "string",
-                "description": "Glob pattern"
-              },
-              "encoding": {
-                "type": "string",
-                "description": "Encoding name"
-              }
+          "type": "object",
+          "description": "Encoding rules grouped by encoding",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "Glob pattern"
             }
           }
         }

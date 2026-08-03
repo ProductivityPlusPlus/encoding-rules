@@ -4,6 +4,8 @@ A VS Code extension that automatically opens files with the correct encoding bas
 
 Useful for legacy projects, imported files, and repositories that contain a mix of UTF-8 and non-UTF-8 text files.
 
+![Encoding Rules Demo](./assets/demo.gif)
+
 ## Features
 
 - Automatically detects matching files when they are opened.
@@ -18,16 +20,14 @@ Add encoding rules in your VS Code settings:
 
 ```json
 {
-  "encodingRules.rules": [
-    {
-      "pattern": "**/legacy/**",
-      "encoding": "windows1252"
-    },
-    {
-      "pattern": "**/*.txt",
-      "encoding": "utf8"
-    }
-  ]
+  "encodingRules.rules": {
+    "windows1257": [
+      "**/legacy/**"
+    ],
+    "utf8": [
+      "**/*.txt"
+    ]
+  }
 }
 ```
 
@@ -102,30 +102,6 @@ Encoding Rules lets you define these choices once.
 - Some VS Code internal documents may not have normal file paths.
 - The extension does not modify file contents; it only controls how files are opened.
 
-## Development
-
-Clone the repository:
-
-```bash
-git clone https://github.com/ProductivityPlusPlus/encoding-rules.git
-```
-
-Install dependencies:
-
-```bash
-npm install
-```
-
-Compile:
-
-```bash
-npm run compile
-```
-
-Run the extension:
-
-Press `F5` in VS Code to launch an Extension Development Host.
-
 ## Support
 
 If Encoding Rules saves you time, consider supporting development:
@@ -141,9 +117,6 @@ If Encoding Rules saves you time, consider supporting development:
   <img src="https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-ea4aaa?logo=github" alt="GitHub Sponsors">
 </a>
 
-Repository:
-
-https://github.com/ProductivityPlusPlus/encoding-rules
 
 ## License
 
