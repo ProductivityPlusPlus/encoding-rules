@@ -4,7 +4,9 @@ A VS Code extension that automatically opens files with the correct encoding bas
 
 Useful for legacy projects, imported files, and repositories that contain a mix of UTF-8 and non-UTF-8 text files.
 
-![Encoding Rules Demo](./assets/demo.gif)
+<p align="center">
+  <img src="./assets/demo.gif" width="700" alt="Encoding Rules Demo">
+</p>
 
 ## Features
 
