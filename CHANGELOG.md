@@ -1,9 +1,10 @@
 # Change Log
 
-All notable changes to the "encoding-rules" extension will be documented in this file.
+## 0.1.1
 
-Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
+- Added support for older VS Code versions (1.90+).
+- No configuration changes required.
 
-## [Unreleased]
+## 0.1.0
 
-- Initial release
+- Initial release.
