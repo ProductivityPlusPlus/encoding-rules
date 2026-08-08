@@ -1,8 +1,10 @@
 # Encoding Rules
 
-A VS Code extension that automatically opens files with the correct encoding based on file path rules.
+**Automatically open files with the correct encoding based on their file path.**
 
-Useful for legacy projects, imported files, and repositories that contain a mix of UTF-8 and non-UTF-8 text files.
+When VS Code doesn't reliably detect the encoding of a file, create a path-based rule and let Encoding Rules remember it.
+
+Useful for **legacy projects, imported files, and repositories containing a mix of UTF-8 and non-UTF-8 text files**.
 
 <p align="center">
   <img src="./assets/demo.gif" width="700" alt="Encoding Rules Demo">
