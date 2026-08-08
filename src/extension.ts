@@ -1,231 +1,103 @@
 import * as vscode from "vscode";
-import { minimatch } from "minimatch";
-import { getRulesHtml } from "./config-webview";
+import { findMatchingEncoding } from "./rules";
+import { registerCommands, reopenWithEncoding } from "./commands";
 
-type EncodingRules = Record<string, string[]>;
 
-const processedFiles = new Set<string>();
+const processedFiles =
+    new Set<string>();
 
-let encodingQueue = Promise.resolve();
+
+let encodingQueue =
+    Promise.resolve();
+
 
 export function activate(context: vscode.ExtensionContext) {
 
     console.log("[Encoding Rules] activated");
 
+    registerCommands(context);
+
     const openListener =
-        vscode.workspace.onDidOpenTextDocument(document => {
-
-            if (document.uri.scheme !== "file") {
-                return;
+        vscode.workspace.onDidOpenTextDocument(
+            document => {
+                handleDocument(document);
             }
-
-            const encoding =
-                findMatchingEncoding(
-                    document.uri.fsPath
-                );
-
-            if (!encoding) {
-                return;
-            }
-
-            const key =
-                document.uri.toString();
-
-            if (processedFiles.has(key)) {
-                return;
-            }
-
-            processedFiles.add(key);
-
-            encodingQueue =
-                encodingQueue.then(async () => {
-
-                    try {
-
-                        console.log(
-                            `[Encoding Rules] ${document.uri.fsPath} -> ${encoding}`
-                        );
-
-                        await reopenWithEncoding(
-                            document,
-                            encoding
-                        );
-
-                    } catch (error) {
-
-                        console.error(
-                            "[Encoding Rules] failed:",
-                            error
-                        );
-
-                    } finally {
-
-                        processedFiles.delete(key);
-
-                    }
-
-                });
-
-        });
-
-    // package.json
-    //   {
-    //     "command": "encodingRules.editRules",
-    //     "title": "Encoding Rules: Edit Rules"
-    //   }
-
-    // const editRulesCommand =
-    //     vscode.commands.registerCommand(
-    //         "encodingRules.editRules",
-    //         () => {
-    //             showRulesEditor();
-    //         }
-    //     );
+        );
 
     context.subscriptions.push(
-        openListener,
-        // editRulesCommand
-    );
-}
-
-export function deactivate() {
-}
-
-function findMatchingEncoding(
-    filePath: string
-): string | undefined {
-
-    const config =
-        vscode.workspace.getConfiguration(
-            "encodingRules"
-        );
-
-    const rules =
-        config.get<EncodingRules>(
-            "rules",
-            {}
-        );
-
-    const normalized =
-        filePath.replace(/\\/g, "/");
-
-    for (const [encoding, patterns] of Object.entries(rules)) {
-
-        for (const pattern of patterns) {
-
-            if (
-                minimatch(
-                    normalized,
-                    pattern,
-                    {
-                        nocase: true
-                    }
-                )
-            ) {
-                return encoding;
-            }
-
-        }
-
-    }
-
-    return undefined;
-}
-
-async function reopenWithEncoding(
-    document: vscode.TextDocument,
-    target: string
-): Promise<void> {
-
-    const filesConfig =
-        vscode.workspace.getConfiguration(
-            "files"
-        );
-
-    const previous =
-        filesConfig.inspect<string>(
-            "encoding"
-        )?.globalValue;
-
-    await filesConfig.update(
-        "encoding",
-        target,
-        vscode.ConfigurationTarget.Global
+        openListener
     );
 
-    try {
 
-        await vscode.window.showTextDocument(
-            document,
-            {
-                preview: false
-            }
-        );
-
-        await vscode.commands.executeCommand(
-            "workbench.action.files.revert"
-        );
-
-    } finally {
-
-        await filesConfig.update(
-            "encoding",
-            previous,
-            vscode.ConfigurationTarget.Global
-        );
-
+    // Handle documents that were already opened
+    // before the extension finished activating.
+    for (const document of vscode.workspace.textDocuments) {
+        handleDocument(document);
     }
 }
 
-function showRulesEditor() {
 
-    const panel =
-        vscode.window.createWebviewPanel(
-            "encodingRulesEditor",
-            "Encoding Rules",
-            vscode.ViewColumn.One,
-            {
-                enableScripts: true
-            }
+function handleDocument(
+    document: vscode.TextDocument
+) {
+
+    if (document.uri.scheme !== "file") {
+        return;
+    }
+
+    const encoding =
+        findMatchingEncoding(
+            document.uri.fsPath
         );
 
+    if (!encoding) {
+        return;
+    }
 
-    const config =
-        vscode.workspace.getConfiguration(
-            "encodingRules"
-        );
+    const key =
+        document.uri.toString();
 
+    if (processedFiles.has(key)) {
+        return;
+    }
 
-    const rules =
-        config.get<Record<string,string[]>>(
-            "rules",
-            {}
-        );
+    processedFiles.add(key);
 
+    encodingQueue =
+        encodingQueue.then(async () => {
 
-    panel.webview.html =
-        getRulesHtml(rules);
+            try {
 
-
-    panel.webview.onDidReceiveMessage(
-        async message => {
-
-            if (message.command === "save") {
-
-                await config.update(
-                    "rules",
-                    message.rules,
-                    vscode.ConfigurationTarget.Workspace
+                await reopenWithEncoding(
+                    document,
+                    encoding
                 );
 
+            } catch {
 
-                vscode.window.showInformationMessage(
-                    "Encoding Rules saved"
-                );
+                const action =
+                    await vscode.window.showWarningMessage(
+                        `Could not apply encoding "${encoding}" to "${document.fileName}". ` +
+                        `The encoding may not be supported by VS Code.`,
+                        "Open Settings"
+                    );
 
-                panel.dispose();
+                if (action === "Open Settings") {
+
+                    await vscode.commands.executeCommand(
+                        "workbench.action.openSettings",
+                        "@id:encodingRules.rules"
+                    );
+                }
+
+            } finally {
+
+                processedFiles.delete(key);
+
             }
 
-        }
-    );
+        });
 }
+
+
+export function deactivate() {}

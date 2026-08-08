@@ -16,6 +16,18 @@ Useful for legacy projects, imported files, and repositories that contain a mix 
 - Helps with legacy files that need a specific encoding.
 - Keeps encoding decisions in VS Code settings.
 
+## Commands
+
+Encoding Rules provides the following commands through the VS Code Command Palette.
+
+| Command | Description |
+|---|---|
+| **Encoding Rules: Create Rule for Current File** | Creates an encoding rule for the currently active file. Choose an encoding from the list or enter a custom encoding. If a matching rule already exists, you can replace it. |
+| **Encoding Rules: Create Rule for Current Folder** | Creates an encoding rule for the folder containing the currently active file. The rule applies to files matching that folder path. |
+| **Encoding Rules: Show Matching Rule** | Shows the encoding rule currently matching the active file, including the encoding and matching path pattern. |
+
+You can run these commands by opening the **Command Palette** with `Ctrl+Shift+P` (`Cmd+Shift+P` on macOS) and searching for **Encoding Rules**.
+
 ## Configuration
 
 Add encoding rules in your VS Code settings:
