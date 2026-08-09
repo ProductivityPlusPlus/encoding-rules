@@ -3,10 +3,13 @@
 ## 0.2.0
 
 - Added commands to create encoding rules for the current file or folder.
-- Added Show Matching Rule to see which rule applies to the current file.
-- Added an improved encoding picker with filtering and custom encoding support.
+- Added **Show Matching Rule** to see which rule applies to the current file.
+- Improved encoding picker with filtering and custom encoding support.
 - Added rule replacement and precedence handling for overlapping rules.
-- Improved startup behavior, file reopening, and error handling when applying encoding rules.
+- Improved automatic rule updates when Settings change.
+- Improved file reopening, startup behavior, focus preservation, and error handling.
+
+**Requirements:** VS Code 1.100 or newer.
 
 ## 0.1.1
 

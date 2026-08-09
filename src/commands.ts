@@ -3,10 +3,46 @@ import * as vscode from "vscode";
 import {
     addRule,
     findMatchingRules,
-    MatchingRule,
-    AddRuleResult
+    MatchingRule
 } from "./rules";
 
+/*
+ * The file that the user explicitly changed.
+ *
+ * extension.ts consumes this after the configuration
+ * change event arrives.
+ */
+let requestedFocusUri:
+    vscode.Uri | undefined;
+
+export function requestFocusUri(
+    uri: vscode.Uri
+) {
+
+    requestedFocusUri =
+        uri;
+}
+
+export function consumeRequestedFocusUri():
+    vscode.Uri | undefined {
+
+    const uri =
+        requestedFocusUri;
+
+    requestedFocusUri =
+        undefined;
+
+    return uri;
+}
+
+/*
+ * Documents currently being explicitly reopened by this extension.
+ *
+ * This prevents onDidOpenTextDocument and configuration-change
+ * processing from trying to reopen the same document again.
+ */
+export const reopeningDocuments =
+    new Set<string>();
 
 export function registerCommands(
     context: vscode.ExtensionContext
@@ -32,7 +68,6 @@ export function registerCommands(
     );
 }
 
-
 /* -------------------------------------------------------------------------- */
 /* Create rule                                                                */
 /* -------------------------------------------------------------------------- */
@@ -53,10 +88,8 @@ async function createRule(
         return;
     }
 
-
     const document =
         editor.document;
-
 
     if (
         document.uri.scheme !== "file"
@@ -69,12 +102,6 @@ async function createRule(
         return;
     }
 
-
-    /*
-     * For a folder rule we use the directory
-     * containing the current file.
-     */
-
     const pattern =
         folder
             ? createFolderPattern(
@@ -83,30 +110,27 @@ async function createRule(
             : document.uri.fsPath
                 .replace(/\\/g, "/");
 
-
     const encoding =
         await chooseEncoding(
             document
         );
 
-
     if (!encoding) {
         return;
     }
-
 
     const existing =
         findExistingExactRule(
             pattern
         );
 
-
-    let replaceExisting = false;
-
+    let replaceExisting =
+        false;
 
     if (
         existing &&
-        existing.encoding !== encoding
+        existing.encoding.toLowerCase() !==
+            encoding.toLowerCase()
     ) {
 
         const choice =
@@ -116,15 +140,26 @@ async function createRule(
                 "Cancel"
             );
 
+        if (
+            choice !== "Replace"
+        ) {
 
-        if (choice !== "Replace") {
             return;
         }
 
-
-        replaceExisting = true;
+        replaceExisting =
+            true;
     }
 
+    /*
+     * Remember which file the user explicitly operated on.
+     *
+     * This must happen BEFORE the configuration update so that
+     * extension.ts knows which file should regain focus.
+     */
+    requestFocusUri(
+        document.uri
+    );
 
     const result =
         await addRule(
@@ -133,8 +168,13 @@ async function createRule(
             replaceExisting
         );
 
-
     if (!result) {
+
+        /*
+         * The configuration was not changed.
+         * There is therefore no configuration event to handle.
+         */
+        consumeRequestedFocusUri();
 
         vscode.window.showInformationMessage(
             "This encoding rule already exists."
@@ -143,71 +183,49 @@ async function createRule(
         return;
     }
 
-
     /*
-     * Immediately apply the newly created
-     * rule to the current file.
+     * Reopen the explicitly changed file immediately.
+     *
+     * The configuration-change listener may also run because
+     * addRule() changed the settings.
+     *
+     * That is safe because reopenWithEncoding() registers the
+     * URI in reopeningDocuments before doing anything else.
+     *
+     * Therefore the configuration listener will not reopen this
+     * same file concurrently.
      */
-
     try {
 
         await reopenWithEncoding(
             document,
-            encoding
+            encoding,
+            true
         );
 
-    } catch {
+    } catch (error) {
 
-        const action =
-            await vscode.window.showWarningMessage(
-                `The rule was saved, but "${document.fileName}" could not be reopened using "${encoding}". ` +
-                `The encoding may not be supported by VS Code.`,
-                "Open Settings"
-            );
+        console.error(
+            "[Encoding Rules] Runtime reopen failed:",
+            error
+        );
 
-        if (action === "Open Settings") {
+        vscode.window.showErrorMessage(
+            `Could not apply the encoding rule to "${document.fileName}".`
+        );
 
-            await vscode.commands.executeCommand(
-                "workbench.action.openSettings",
-                "@id:encodingRules.rules"
-            );
-        }
+        return;
     }
 
-
-    let message: string;
-
-
-    if (
+    const message =
         result.status === "replaced"
-    ) {
+            ? `Rule updated: ${result.previousEncoding} → ${encoding}`
+            : `Rule added: ${encoding}`;
 
-        message =
-            `Rule updated: ${result.previousEncoding} → ${encoding}`;
-
-    } else {
-
-        message =
-            `Rule added: ${encoding}`;
-    }
-
-
-    const action =
-        await vscode.window.showInformationMessage(
-            message,
-            "Open Settings"
-        );
-
-
-    if (
-        action === "Open Settings"
-    ) {
-
-        await openRulesSettings();
-
-    }
+    vscode.window.showInformationMessage(
+        message
+    );
 }
-
 
 /* -------------------------------------------------------------------------- */
 /* Encoding picker                                                            */
@@ -216,9 +234,6 @@ async function createRule(
 async function chooseEncoding(
     document: vscode.TextDocument
 ): Promise<string | undefined> {
-
-    const currentEncoding =
-        getCurrentEncoding(document);
 
     const encodings =
         getSupportedEncodings();
@@ -238,18 +253,17 @@ async function chooseEncoding(
         "Choose Encoding";
 
     quickPick.placeholder =
-        currentEncoding
-            ? `Current: ${currentEncoding}`
-            : "Search for an encoding...";
+        "Search for an encoding...";
 
-    quickPick.matchOnDescription = true;
-
+    quickPick.matchOnDescription =
+        true;
 
     function updateItems() {
 
         const query =
-            quickPick.value.trim().toLowerCase();
-
+            quickPick.value
+                .trim()
+                .toLowerCase();
 
         const matchingEncodings =
             encodings.filter(
@@ -260,37 +274,25 @@ async function chooseEncoding(
                         .includes(query)
             );
 
-
         const items:
             EncodingQuickPickItem[] =
             matchingEncodings.map(
                 encoding => ({
 
                     label:
-                        encoding === currentEncoding
-                            ? `$(check) ${encoding}`
-                            : encoding,
-
-                    description:
-                        encoding === currentEncoding
-                            ? "Current encoding"
-                            : undefined,
+                        encoding,
 
                     encoding
 
                 })
             );
 
-
-        /*
-         * Offer a custom encoding.
-         */
-
         if (
             query &&
             !encodings.some(
                 encoding =>
-                    encoding.toLowerCase() === query
+                    encoding.toLowerCase() ===
+                    query
             )
         ) {
 
@@ -324,46 +326,49 @@ async function chooseEncoding(
                     true
 
             });
-
         }
-
 
         quickPick.items =
             items;
     }
 
-
     updateItems();
-
 
     quickPick.onDidChangeValue(
         () => {
+
             updateItems();
+
         }
     );
-
 
     return new Promise<string | undefined>(
         resolve => {
 
-            let resolved = false;
+            let resolved =
+                false;
 
+            const finish =
+                (
+                    value: string | undefined
+                ) => {
 
-            const finish = (
-                value: string | undefined
-            ) => {
+                    if (
+                        resolved
+                    ) {
 
-                if (resolved) {
-                    return;
-                }
+                        return;
+                    }
 
-                resolved = true;
+                    resolved =
+                        true;
 
-                quickPick.hide();
+                    quickPick.hide();
 
-                resolve(value);
-            };
-
+                    resolve(
+                        value
+                    );
+                };
 
             quickPick.onDidAccept(
                 async () => {
@@ -371,39 +376,16 @@ async function chooseEncoding(
                     const selected =
                         quickPick.selectedItems[0];
 
-
                     if (!selected) {
 
-                        finish(undefined);
-
-                        return;
-                    }
-
-
-                    /*
-                     * Predefined encoding.
-                     */
-
-                    if (
-                        selected.encoding &&
-                        !selected.isCustom
-                    ) {
-
                         finish(
-                            selected.encoding
+                            undefined
                         );
 
                         return;
                     }
 
-
-                    /*
-                     * Custom encoding that was
-                     * typed directly.
-                     */
-
                     if (
-                        selected.isCustom &&
                         selected.encoding
                     ) {
 
@@ -414,15 +396,7 @@ async function chooseEncoding(
                         return;
                     }
 
-
-                    /*
-                     * User selected the generic
-                     * "Enter custom encoding..."
-                     * option.
-                     */
-
                     quickPick.hide();
-
 
                     const custom =
                         await vscode.window.showInputBox({
@@ -454,35 +428,36 @@ async function chooseEncoding(
 
                         });
 
-
                     finish(
                         custom?.trim()
                     );
                 }
             );
 
-
             quickPick.onDidHide(
                 () => {
 
-                    if (!resolved) {
+                    if (
+                        !resolved
+                    ) {
 
-                        resolved = true;
+                        resolved =
+                            true;
 
-                        resolve(undefined);
+                        resolve(
+                            undefined
+                        );
                     }
 
                     quickPick.dispose();
                 }
             );
 
-
             quickPick.show();
+
         }
     );
 }
-
-
 
 /* -------------------------------------------------------------------------- */
 /* Supported encodings                                                        */
@@ -490,19 +465,14 @@ async function chooseEncoding(
 
 function getSupportedEncodings(): string[] {
 
-    /*
-     * VS Code does not currently expose a simple
-     * public API that returns the complete list of
-     * supported file encodings.
-     *
-     * Keep the commonly useful encodings here.
-     */
-
     return [
+
         "utf8",
         "utf8bom",
+
         "utf16le",
         "utf16be",
+
         "windows1250",
         "windows1251",
         "windows1252",
@@ -512,6 +482,7 @@ function getSupportedEncodings(): string[] {
         "windows1256",
         "windows1257",
         "windows1258",
+
         "iso88591",
         "iso88592",
         "iso88593",
@@ -520,42 +491,24 @@ function getSupportedEncodings(): string[] {
         "iso88596",
         "iso88597",
         "iso88599",
+
         "koi8r",
         "koi8u",
+
         "gbk",
         "gb18030",
+
         "shiftjis",
         "eucjp",
         "euckr",
+
         "big5"
+
     ];
 }
 
-
 /* -------------------------------------------------------------------------- */
-/* Current encoding                                                           */
-/* -------------------------------------------------------------------------- */
-
-function getCurrentEncoding(
-    document: vscode.TextDocument
-): string | undefined {
-
-    /*
-     * VS Code does not expose the encoding of a
-     * TextDocument directly.
-     *
-     * The encoding setting is therefore used as
-     * the best available indication.
-     */
-
-    return vscode.workspace
-        .getConfiguration("files")
-        .get<string>("encoding");
-}
-
-
-/* -------------------------------------------------------------------------- */
-/* Existing exact rule                                                       */
+/* Existing exact rule                                                        */
 /* -------------------------------------------------------------------------- */
 
 function findExistingExactRule(
@@ -568,7 +521,6 @@ function findExistingExactRule(
             "/"
         );
 
-
     const rules =
         vscode.workspace
             .getConfiguration(
@@ -578,7 +530,6 @@ function findExistingExactRule(
                 "rules",
                 {}
             );
-
 
     for (
         const [encoding, patterns]
@@ -597,16 +548,18 @@ function findExistingExactRule(
         ) {
 
             return {
+
                 encoding,
-                pattern: normalized
+
+                pattern:
+                    normalized
+
             };
         }
     }
 
-
     return undefined;
 }
-
 
 /* -------------------------------------------------------------------------- */
 /* Folder pattern                                                             */
@@ -622,10 +575,8 @@ function createFolderPattern(
             "/"
         );
 
-
     const lastSlash =
         normalized.lastIndexOf("/");
-
 
     const folder =
         normalized.substring(
@@ -633,57 +584,447 @@ function createFolderPattern(
             lastSlash
         );
 
-
     return `${folder}/**`;
 }
-
 
 /* -------------------------------------------------------------------------- */
 /* Reopen with encoding                                                       */
 /* -------------------------------------------------------------------------- */
 
+/*
+ * Reopen an existing document using a specific encoding.
+ *
+ * IMPORTANT:
+ *
+ * Only editors belonging to this URI are touched.
+ *
+ * We never use closeActiveEditor unless we have first made the
+ * target editor active in its own column.
+ *
+ * Settings editors and unrelated files are therefore left alone.
+ */
 export async function reopenWithEncoding(
     document: vscode.TextDocument,
-    target: string
+    target: string,
+    forceFocus = false
 ): Promise<void> {
 
-    const filesConfig =
-        vscode.workspace.getConfiguration("files");
+    const uri =
+        document.uri;
 
-    const previous =
-        filesConfig.inspect<string>(
-            "encoding"
-        )?.globalValue;
+    const key =
+        uri.toString();
+
+    console.log(
+        "[Encoding Rules] ----------------------------------------"
+    );
+
+    console.log(
+        `[Encoding Rules] Reopening: ${document.fileName}`
+    );
+
+    console.log(
+        `[Encoding Rules] Target encoding: ${target}`
+    );
+
+    if (
+        document.isDirty
+    ) {
+
+        throw new Error(
+            `Document is dirty: ${document.fileName}`
+        );
+    }
+
+    /*
+     * Mark the URI BEFORE any editor operation.
+     *
+     * This is critical because closing the editor can generate
+     * events that would otherwise cause extension.ts to start
+     * another reopen operation.
+     */
+    reopeningDocuments.add(
+        key
+    );
 
     try {
 
-        await filesConfig.update(
-            "encoding",
-            target,
-            vscode.ConfigurationTarget.Global
+        const matchingEditors =
+            getVisibleEditorsForUri(
+                uri
+            );
+
+        const originalColumn =
+            matchingEditors.length > 0
+                ? matchingEditors[0].viewColumn
+                : vscode.ViewColumn.Active;
+
+        const wasActive =
+            forceFocus ||
+            vscode.window.activeTextEditor?.document.uri.toString() ===
+                key;
+
+        console.log(
+            `[Encoding Rules] Matching editors: ${matchingEditors.length}`
         );
 
+        console.log(
+            `[Encoding Rules] Original column: ${originalColumn}`
+        );
+
+        console.log(
+            `[Encoding Rules] Will restore focus: ${wasActive}`
+        );
+
+        /*
+         * Close ONLY the target editors.
+         */
+        for (
+            const editor
+            of matchingEditors
+        ) {
+
+            const currentEditor =
+                vscode.window.visibleTextEditors.find(
+                    candidate =>
+                        candidate.document.uri.toString() ===
+                            key &&
+                        candidate.viewColumn ===
+                            editor.viewColumn
+                );
+
+            if (
+                !currentEditor
+            ) {
+
+                continue;
+            }
+
+            try {
+
+                await vscode.window.showTextDocument(
+                    currentEditor.document,
+                    {
+                        viewColumn:
+                            currentEditor.viewColumn,
+                        preserveFocus:
+                            false,
+                        preview:
+                            false
+                    }
+                );
+
+                await delay(
+                    30
+                );
+
+                const active =
+                    vscode.window.activeTextEditor;
+
+                if (
+                    !active ||
+                    active.document.uri.toString() !==
+                        key
+                ) {
+
+                    console.log(
+                        "[Encoding Rules] Target editor was not active; not closing."
+                    );
+
+                    continue;
+                }
+
+                await vscode.commands.executeCommand(
+                    "workbench.action.closeActiveEditor"
+                );
+
+                await delay(
+                    50
+                );
+
+            } catch (error) {
+
+                console.error(
+                    "[Encoding Rules] Failed to close target editor:",
+                    error
+                );
+            }
+        }
+
+        await waitForVisibleEditorsClosed(
+            uri,
+            3000
+        );
+
+        console.log(
+            "[Encoding Rules] Target editors closed."
+        );
+
+        /*
+         * Open the document with the requested encoding.
+         */
+        const reopened =
+            await vscode.workspace.openTextDocument(
+                uri,
+                {
+                    encoding:
+                        target
+                }
+            );
+
+        const actualEncoding =
+            getDocumentEncoding(
+                reopened
+            );
+
+        console.log(
+            `[Encoding Rules] openTextDocument returned encoding: ${actualEncoding}`
+        );
+
+        if (
+            actualEncoding &&
+            actualEncoding.toLowerCase() !==
+                target.toLowerCase()
+        ) {
+
+            throw new Error(
+                `VS Code reopened "${uri.fsPath}" using "${actualEncoding}" instead of "${target}".`
+            );
+        }
+
+        /*
+         * Put the document back in its original editor column.
+         *
+         * If forceFocus/wasActive is true, this also makes it active.
+         */
         await vscode.window.showTextDocument(
-            document,
+            reopened,
             {
-                preview: false
+                viewColumn:
+                    originalColumn,
+                preview:
+                    false,
+                preserveFocus:
+                    !wasActive
             }
         );
 
-        await vscode.commands.executeCommand(
-            "workbench.action.files.revert"
+        /*
+         * Explicitly verify focus when this file was supposed
+         * to remain focused.
+         */
+        if (
+            wasActive
+        ) {
+
+            await delay(
+                50
+            );
+
+            const active =
+                vscode.window.activeTextEditor;
+
+            if (
+                !active ||
+                active.document.uri.toString() !==
+                    key
+            ) {
+
+                const restoredEditor =
+                    vscode.window.visibleTextEditors.find(
+                        editor =>
+                            editor.document.uri.toString() ===
+                            key
+                    );
+
+                if (
+                    restoredEditor
+                ) {
+
+                    await vscode.window.showTextDocument(
+                        restoredEditor.document,
+                        {
+                            viewColumn:
+                                restoredEditor.viewColumn,
+                            preview:
+                                false,
+                            preserveFocus:
+                                false
+                        }
+                    );
+                }
+            }
+        }
+
+        console.log(
+            `[Encoding Rules] Reopened document successfully: ${reopened.fileName}`
         );
+
+        console.log(
+            `[Encoding Rules] Verified encoding: ${actualEncoding}`
+        );
+
+        console.log(
+            "[Encoding Rules] ----------------------------------------"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "[Encoding Rules] REOPEN FAILED:",
+            error
+        );
+
+        throw error;
 
     } finally {
 
-        await filesConfig.update(
-            "encoding",
-            previous,
-            vscode.ConfigurationTarget.Global
+        reopeningDocuments.delete(
+            key
         );
     }
 }
 
+/* -------------------------------------------------------------------------- */
+/* Visible editors                                                            */
+/* -------------------------------------------------------------------------- */
+
+function getVisibleEditorsForUri(
+    uri: vscode.Uri
+): vscode.TextEditor[] {
+
+    const key =
+        uri.toString();
+
+    return vscode.window.visibleTextEditors.filter(
+        editor =>
+            editor.document.uri.toString() ===
+            key
+    );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Wait for visible editors to close                                           */
+/* -------------------------------------------------------------------------- */
+
+async function waitForVisibleEditorsClosed(
+    uri: vscode.Uri,
+    timeoutMs: number
+): Promise<void> {
+
+    const key =
+        uri.toString();
+
+    const isClosed =
+        () =>
+            !vscode.window.visibleTextEditors.some(
+                editor =>
+                    editor.document.uri.toString() ===
+                    key
+            );
+
+    if (
+        isClosed()
+    ) {
+
+        return;
+    }
+
+    await new Promise<void>(
+        (resolve, reject) => {
+
+            let finished =
+                false;
+
+            const finish =
+                (
+                    error?: Error
+                ) => {
+
+                    if (
+                        finished
+                    ) {
+
+                        return;
+                    }
+
+                    finished =
+                        true;
+
+                    editorChangeDisposable.dispose();
+
+                    clearTimeout(
+                        timeout
+                    );
+
+                    if (
+                        error
+                    ) {
+
+                        reject(
+                            error
+                        );
+
+                    } else {
+
+                        resolve();
+                    }
+                };
+
+            const editorChangeDisposable =
+                vscode.window.onDidChangeVisibleTextEditors(
+                    () => {
+
+                        if (
+                            isClosed()
+                        ) {
+
+                            finish();
+                        }
+                    }
+                );
+
+            const timeout =
+                setTimeout(
+                    () => {
+
+                        if (
+                            isClosed()
+                        ) {
+
+                            finish();
+
+                            return;
+                        }
+
+                        finish(
+                            new Error(
+                                `Timed out waiting for VS Code to close editor "${uri.fsPath}".`
+                            )
+                        );
+
+                    },
+                    timeoutMs
+                );
+        }
+    );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Document encoding                                                          */
+/* -------------------------------------------------------------------------- */
+
+function getDocumentEncoding(
+    document: vscode.TextDocument
+): string | undefined {
+
+    const candidate =
+        document as vscode.TextDocument & {
+            encoding?: string;
+        };
+
+    return candidate.encoding;
+}
 
 /* -------------------------------------------------------------------------- */
 /* Show matching rules                                                        */
@@ -694,7 +1035,6 @@ async function showMatchingRule() {
     const editor =
         vscode.window.activeTextEditor;
 
-
     if (!editor) {
 
         vscode.window.showInformationMessage(
@@ -703,7 +1043,6 @@ async function showMatchingRule() {
 
         return;
     }
-
 
     if (
         editor.document.uri.scheme !== "file"
@@ -716,120 +1055,77 @@ async function showMatchingRule() {
         return;
     }
 
-
     const filePath =
         editor.document.uri.fsPath;
-
 
     const matches =
         findMatchingRules(
             filePath
         );
 
-
     if (
         matches.length === 0
     ) {
 
-        const action =
-            await vscode.window.showInformationMessage(
-                "No encoding rule matches this file.",
-                "Open Settings"
-            );
-
-
-        if (
-            action === "Open Settings"
-        ) {
-
-            await openRulesSettings();
-
-        }
+        vscode.window.showInformationMessage(
+            "No encoding rule matches this file."
+        );
 
         return;
     }
 
-
     const effective =
         matches[0];
-
 
     const items =
         matches.map(
             (
                 match,
                 index
-            ) => createMatchingRuleItem(
-                match,
-                index === 0
-            )
+            ) =>
+                createMatchingRuleItem(
+                    match,
+                    index === 0
+                )
         );
 
-
-    /*
-     * Add a non-rule informational item
-     * showing the current file.
-     */
-
     items.unshift({
-        label: "Current File",
-        description: filePath,
-        detail: `Effective encoding: ${effective.encoding}`,
-        kind: vscode.QuickPickItemKind.Separator
-    });
 
+        label:
+            "Current File",
+
+        description:
+            filePath,
+
+        detail:
+            `Effective encoding: ${effective.encoding}`,
+
+        kind:
+            vscode.QuickPickItemKind.Separator
+
+    });
 
     const quickPick =
         vscode.window.createQuickPick<
             vscode.QuickPickItem
         >();
 
-
     quickPick.title =
         "Encoding Rules — Matching Rules";
 
-    
     quickPick.placeholder =
         `${matches.length} matching rule${matches.length === 1 ? "" : "s"}`;
-
 
     quickPick.items =
         items;
 
-
-    quickPick.buttons = [
-        {
-            iconPath:
-                new vscode.ThemeIcon(
-                    "settings-gear"
-                ),
-
-            tooltip:
-                "Open Encoding Rules settings"
-        }
-    ];
-
-
-    quickPick.onDidTriggerButton(
-        async () => {
-
-            quickPick.hide();
-
-            await openRulesSettings();
-
-        }
-    );
-
-
     quickPick.onDidAccept(
-        async () => {
+        () => {
 
             quickPick.hide();
 
-            await openRulesSettings();
         }
     );
-
 
     quickPick.onDidHide(
         () => {
@@ -839,10 +1135,8 @@ async function showMatchingRule() {
         }
     );
 
-
     quickPick.show();
 }
-
 
 /* -------------------------------------------------------------------------- */
 /* Matching rule item                                                         */
@@ -871,15 +1165,32 @@ function createMatchingRuleItem(
     };
 }
 
+/* -------------------------------------------------------------------------- */
+/* Reopening state                                                            */
+/* -------------------------------------------------------------------------- */
+
+export function isReopeningDocument(
+    document: vscode.TextDocument
+): boolean {
+
+    return reopeningDocuments.has(
+        document.uri.toString()
+    );
+}
 
 /* -------------------------------------------------------------------------- */
-/* Settings                                                                   */
+/* Delay                                                                      */
 /* -------------------------------------------------------------------------- */
 
-async function openRulesSettings() {
+function delay(
+    milliseconds: number
+): Promise<void> {
 
-    await vscode.commands.executeCommand(
-        "workbench.action.openSettings",
-        "@id:encodingRules.rules"
+    return new Promise(
+        resolve =>
+            setTimeout(
+                resolve,
+                milliseconds
+            )
     );
 }

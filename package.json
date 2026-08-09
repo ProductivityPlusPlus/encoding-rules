@@ -19,7 +19,7 @@
     "url": "https://github.com/ProductivityPlusPlus/encoding-rules/issues"
   },
   "engines": {
-    "vscode": "^1.90.0"
+    "vscode": "^1.100.0"
   },
   "keywords": [
     "encoding",
@@ -81,7 +81,7 @@
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "24.x",
-    "@types/vscode": "^1.90.0",
+    "@types/vscode": "^1.100.0",
     "@vscode/test-cli": "^0.0.15",
     "@vscode/test-electron": "^3.0.0",
     "eslint": "^10.5.0",

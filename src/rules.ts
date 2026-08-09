@@ -1,7 +1,8 @@
 import * as vscode from "vscode";
 import { minimatch } from "minimatch";
 
-export type EncodingRules = Record<string, string[]>;
+export type EncodingRules =
+    Record<string, string[]>;
 
 export type MatchingRule = {
     encoding: string;
@@ -17,6 +18,11 @@ export type AddRuleResult =
         previousEncoding: string;
     };
 
+
+/* -------------------------------------------------------------------------- */
+/* Get rules                                                                  */
+/* -------------------------------------------------------------------------- */
+
 export function getRules(): EncodingRules {
 
     const config =
@@ -30,27 +36,55 @@ export function getRules(): EncodingRules {
     );
 }
 
+
+/* -------------------------------------------------------------------------- */
+/* Find matching rules                                                        */
+/* -------------------------------------------------------------------------- */
+
 export function findMatchingRules(
     filePath: string
 ): MatchingRule[] {
 
+    return findMatchingRulesInRules(
+        filePath,
+        getRules()
+    );
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* Find matching rules in supplied rule set                                   */
+/* -------------------------------------------------------------------------- */
+
+export function findMatchingRulesInRules(
+    filePath: string,
+    rules: EncodingRules
+): MatchingRule[] {
+
     const normalizedFilePath =
-        filePath.replace(/\\/g, "/");
+        filePath.replace(
+            /\\/g,
+            "/"
+        );
 
-    const rules =
-        getRules();
-
-    const matches: MatchingRule[] = [];
+    const matches:
+        MatchingRule[] = [];
 
     for (
         const [encoding, patterns]
         of Object.entries(rules)
     ) {
 
-        for (const pattern of patterns) {
+        for (
+            const pattern
+            of patterns
+        ) {
 
             const normalizedPattern =
-                pattern.replace(/\\/g, "/");
+                pattern.replace(
+                    /\\/g,
+                    "/"
+                );
 
             if (
                 minimatch(
@@ -64,26 +98,24 @@ export function findMatchingRules(
 
                 matches.push({
                     encoding,
-                    pattern: normalizedPattern
+                    pattern:
+                        normalizedPattern
                 });
-
             }
         }
     }
 
     /*
-     * More specific patterns should win.
+     * More specific patterns win.
      *
-     * This is currently based on pattern length.
-     * Therefore:
+     * Example:
      *
-     *   C:/Legacy/modern/**
+     * C:/Temp/Folder/**
      *
-     * wins over:
+     * beats:
      *
-     *   C:/Legacy/**
+     * C:/Temp/**
      */
-
     matches.sort(
         (a, b) =>
             b.pattern.length -
@@ -92,6 +124,11 @@ export function findMatchingRules(
 
     return matches;
 }
+
+
+/* -------------------------------------------------------------------------- */
+/* Find matching rule                                                         */
+/* -------------------------------------------------------------------------- */
 
 export function findMatchingRule(
     filePath: string
@@ -102,6 +139,11 @@ export function findMatchingRule(
     )[0];
 }
 
+
+/* -------------------------------------------------------------------------- */
+/* Find matching encoding                                                     */
+/* -------------------------------------------------------------------------- */
+
 export function findMatchingEncoding(
     filePath: string
 ): string | undefined {
@@ -111,6 +153,27 @@ export function findMatchingEncoding(
     )?.encoding;
 }
 
+
+/* -------------------------------------------------------------------------- */
+/* Find matching encoding in supplied rule set                                */
+/* -------------------------------------------------------------------------- */
+
+export function findMatchingEncodingInRules(
+    filePath: string,
+    rules: EncodingRules
+): string | undefined {
+
+    return findMatchingRulesInRules(
+        filePath,
+        rules
+    )[0]?.encoding;
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* Add rule                                                                   */
+/* -------------------------------------------------------------------------- */
+
 export async function addRule(
     encoding: string,
     pattern: string,
@@ -119,14 +182,9 @@ export async function addRule(
 
     /*
      * Clone the configuration object before modifying it.
-     *
-     * This avoids VS Code configuration proxy issues such as:
-     *
-     * "'isExtensible' on proxy: trap result does not reflect
-     * extensibility of proxy target"
      */
-
-    const rules: EncodingRules =
+    const rules:
+        EncodingRules =
         JSON.parse(
             JSON.stringify(
                 getRules()
@@ -136,19 +194,27 @@ export async function addRule(
     let existingEncoding:
         string | undefined;
 
-
     /*
-     * Check whether this exact pattern
-     * already exists.
+     * Find an exact existing pattern.
      */
-
     for (
         const [currentEncoding, patterns]
         of Object.entries(rules)
     ) {
 
         if (
-            patterns.includes(pattern)
+            patterns.some(
+                existingPattern =>
+                    existingPattern
+                        .replace(
+                            /\\/g,
+                            "/"
+                        ) ===
+                    pattern.replace(
+                        /\\/g,
+                        "/"
+                    )
+            )
         ) {
 
             existingEncoding =
@@ -158,24 +224,20 @@ export async function addRule(
         }
     }
 
-
     /*
-     * The exact same rule already exists.
+     * Same pattern and same encoding.
      */
-
     if (
-        existingEncoding === encoding
+        existingEncoding ===
+        encoding
     ) {
 
         return false;
     }
 
-
     /*
-     * The pattern already exists under
-     * another encoding.
+     * Same pattern under another encoding.
      */
-
     if (
         existingEncoding &&
         !replaceExisting
@@ -184,55 +246,56 @@ export async function addRule(
         return false;
     }
 
-
     /*
-     * Remove the old occurrence when
-     * replacing an existing rule.
+     * Remove the old occurrence.
      */
+    if (
+        existingEncoding
+    ) {
 
-    if (existingEncoding) {
-
-        rules[existingEncoding] =
-            rules[existingEncoding]
-                .filter(
-                    existingPattern =>
-                        existingPattern !== pattern
-                );
-
-        /*
-         * Remove the encoding entirely
-         * if it no longer has patterns.
-         */
+        rules[
+            existingEncoding
+        ] =
+            rules[
+                existingEncoding
+            ].filter(
+                existingPattern =>
+                    existingPattern
+                        .replace(
+                            /\\/g,
+                            "/"
+                        ) !==
+                    pattern.replace(
+                        /\\/g,
+                        "/"
+                    )
+            );
 
         if (
-            rules[existingEncoding]
-                .length === 0
+            rules[
+                existingEncoding
+            ].length === 0
         ) {
 
             delete rules[
                 existingEncoding
             ];
-
         }
     }
 
-
     /*
-     * Create the new encoding entry
-     * if necessary.
+     * Add the new rule.
      */
-
-    if (!rules[encoding]) {
+    if (
+        !rules[encoding]
+    ) {
 
         rules[encoding] = [];
-
     }
-
 
     rules[encoding].push(
         pattern
     );
-
 
     await vscode.workspace
         .getConfiguration(
@@ -244,19 +307,21 @@ export async function addRule(
             vscode.ConfigurationTarget.Global
         );
 
-
-    if (existingEncoding) {
+    if (
+        existingEncoding
+    ) {
 
         return {
-            status: "replaced",
+            status:
+                "replaced",
+
             previousEncoding:
                 existingEncoding
         };
-
     }
 
-
     return {
-        status: "added"
+        status:
+            "added"
     };
 }
