@@ -2,8 +2,8 @@
   "name": "encoding-rules",
   "displayName": "Encoding Rules",
   "publisher": "ProductivityPlusPlus",
-  "description": "Automatic encoding rules based on file paths",
-  "version": "0.2.0",
+  "description": "Automatically open files with the encoding defined by your rules",
+  "version": "0.2.1",
   "icon": "assets/icon.png",
   "license": "MIT",
   "homepage": "https://github.com/ProductivityPlusPlus/encoding-rules#readme",
@@ -24,12 +24,16 @@
   "keywords": [
     "encoding",
     "charset",
-    "utf8",
-    "utf-8",
+    "file encoding",
+    "text encoding",
+    "encoding rules",
+    "legacy encoding",
+    "windows-1250",
+    "windows-1252",
+    "windows-1257",
+    "iso-8859-1",
     "gbk",
-    "shift-jis",
-    "files",
-    "legacy"
+    "shift-jis"
   ],
   "categories": [
     "Other"
