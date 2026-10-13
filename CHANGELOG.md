@@ -1,5 +1,9 @@
 # Change Log
 
+## 0.2.2
+
+- Added support for untrusted workspaces.
+
 ## 0.2.0
 
 - Added commands to create encoding rules for the current file or folder.

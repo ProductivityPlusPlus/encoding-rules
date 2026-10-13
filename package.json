@@ -2,8 +2,8 @@
   "name": "encoding-rules",
   "displayName": "Encoding Rules",
   "publisher": "ProductivityPlusPlus",
-  "description": "Automatically open files with the encoding defined by your rules",
-  "version": "0.2.1",
+  "description": "Fix garbled text in VS Code: set encoding rules once per folder or path pattern",
+  "version": "0.2.2",
   "icon": "assets/icon.png",
   "license": "MIT",
   "homepage": "https://github.com/ProductivityPlusPlus/encoding-rules#readme",
@@ -72,6 +72,11 @@
           }
         }
       }
+    }
+  },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
     }
   },
   "scripts": {
