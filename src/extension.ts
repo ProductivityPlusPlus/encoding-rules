@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 
 import {
     EncodingRules,
+    exceedsMaxFileSize,
     findMatchingEncoding,
     findMatchingEncodingInRules,
     getRules
@@ -10,6 +11,7 @@ import {
 import {
     consumeRequestedFocusUri,
     isReopeningDocument,
+    notifyFileTooLarge,
     registerCommands,
     reopenWithEncoding,
     reopeningDocuments
@@ -110,6 +112,22 @@ export function activate(
         );
 
     context.subscriptions.push(
+        vscode.window.tabGroups.onDidChangeTabs(event => {
+            for (const tab of event.opened) {
+                if (!(tab.input instanceof vscode.TabInputText)) continue;
+
+                const uri = tab.input.uri;
+                if (uri.scheme !== "file") continue;
+
+                const encoding = findMatchingEncoding(uri.fsPath);
+                if (!encoding) continue;
+
+                void checkTooLarge(uri, encoding);
+            }
+        })
+    );
+
+    context.subscriptions.push(
         openListener
     );
 
@@ -170,6 +188,18 @@ export function activate(
 
             }
         );
+}
+
+async function checkTooLarge(
+    uri: vscode.Uri,
+    encoding: string
+) {
+
+    if (
+        await exceedsMaxFileSize(uri)
+    ) {
+        void notifyFileTooLarge(uri, encoding);
+    }
 }
 
 /* -------------------------------------------------------------------------- */

@@ -1,5 +1,11 @@
 # Change Log
 
+## 0.2.3
+
+- Added `encodingRules.maxFileSize` setting (default 50 MB). Files larger than this are skipped instead of being reopened.
+- Added a warning when a file matching a rule is skipped for being too large, with a **Don't Show Again** button.
+- Added `encodingRules.showLargeFileWarning` setting to turn that warning on or off.
+
 ## 0.2.2
 
 - Added support for untrusted workspaces.

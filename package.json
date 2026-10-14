@@ -3,7 +3,7 @@
   "displayName": "Encoding Rules",
   "publisher": "ProductivityPlusPlus",
   "description": "Fix garbled text in VS Code: set encoding rules once per folder or path pattern",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "icon": "assets/icon.png",
   "license": "MIT",
   "homepage": "https://github.com/ProductivityPlusPlus/encoding-rules#readme",
@@ -70,6 +70,16 @@
               "description": "Glob pattern"
             }
           }
+        },
+        "encodingRules.maxFileSize": {
+          "type": "number",
+          "description": "Maximum file size (in bytes) for which encoding rules will be applied. Files larger than this size will be skipped.",
+          "default": 52428800
+        },
+        "encodingRules.showLargeFileWarning": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a warning when a file matches an encoding rule but is larger than encodingRules.maxFileSize."
         }
       }
     }

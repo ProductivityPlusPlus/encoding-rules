@@ -78,6 +78,15 @@ For example, if you also had a rule for `**/*.txt`, the file `legacy/notes.txt` 
 
 Pattern matching is case-insensitive, and Windows-style backslashes in paths are handled automatically. Not sure which rule applies to a file? Run **Encoding Rules: Show Matching Rule**.
 
+### Other settings
+
+| Setting | Default | Description |
+|---|---|---|
+| `encodingRules.maxFileSize` | `52428800` (50 MB) | Largest file size, in bytes, to which rules are applied. Larger files are skipped. |
+| `encodingRules.showLargeFileWarning` | `true` | Show a warning when a file matching a rule is skipped for being too large. You can also turn it off with **Don't Show Again** on the warning itself. |
+
+Raising `encodingRules.maxFileSize` above about 50 MB has no effect, because VS Code doesn't load larger files into the extension host as text documents, so Encoding Rules can't reopen them. Lowering it is useful if you want to skip large files that are slow to reopen.
+
 ## Supported Encodings
 
 Supported encodings depend on VS Code's built-in encoding support. Use VS Code's encoding IDs (for example `windows1252`, not `windows-1252`). The **Create Rule** commands let you pick from a list, so you don't have to memorize them.
@@ -112,6 +121,8 @@ Rules use glob patterns to match files.
 - Incorrect rules may cause files to be opened with the wrong encoding.
 - Some VS Code internal documents may not have normal file paths.
 - The extension does not modify file contents; it only controls how files are opened.
+- If you manually choose **Reopen with Encoding**, VS Code keeps that choice until the file is closed. The next time the file opens, your rule applies again.
+- Large files (about 50 MB and above) are skipped, because VS Code can't pass them to extensions for reopening. You can lower this limit with `encodingRules.maxFileSize`.
 
 ## Support
 

@@ -38,6 +38,44 @@ export function getRules(): EncodingRules {
 
 
 /* -------------------------------------------------------------------------- */
+/* Get maximum file size                                                      */
+/* -------------------------------------------------------------------------- */
+
+export function getMaxFileSize(): number {
+
+    const config =
+        vscode.workspace.getConfiguration(
+            "encodingRules"
+        );
+
+    return config.get<number>(
+        "maxFileSize",
+        52428800
+    );
+}
+
+export async function exceedsMaxFileSize(
+    uri: vscode.Uri
+): Promise<boolean> {
+
+    try {
+
+        const stat =
+            await vscode.workspace.fs.stat(uri);
+
+        return stat.size > getMaxFileSize();
+
+    } catch {
+
+        /*
+         * If the size can't be determined, don't block the rule.
+         */
+        return false;
+    }
+}
+
+
+/* -------------------------------------------------------------------------- */
 /* Find matching rules                                                        */
 /* -------------------------------------------------------------------------- */
 

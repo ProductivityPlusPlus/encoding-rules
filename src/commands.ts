@@ -2,9 +2,12 @@ import * as vscode from "vscode";
 
 import {
     addRule,
+    exceedsMaxFileSize,
     findMatchingRules,
+    getMaxFileSize,
     MatchingRule
 } from "./rules";
+import path from "path";
 
 /*
  * The file that the user explicitly changed.
@@ -43,6 +46,51 @@ export function consumeRequestedFocusUri():
  */
 export const reopeningDocuments =
     new Set<string>();
+
+export async function notifyFileTooLarge(
+    uri: vscode.Uri,
+    encoding: string
+): Promise<void> {
+
+    const config =
+        vscode.workspace.getConfiguration(
+            "encodingRules"
+        );
+
+    if (
+        !config.get<boolean>(
+            "showLargeFileWarning",
+            true
+        )
+    ) {
+
+        return;
+    }
+
+    const limitMB =
+        Math.round(
+            (getMaxFileSize() / (1024 * 1024)) * 10
+        ) / 10;
+
+    const choice =
+        await vscode.window.showWarningMessage(
+            `${path.basename(uri.fsPath)}: matches an encoding rule (${encoding}), ` +
+            `but the file is larger than the ${limitMB} MB limit ` +
+            `(encodingRules.maxFileSize), so the rule was not applied.`,
+            "Don't Show Again"
+        );
+
+    if (
+        choice === "Don't Show Again"
+    ) {
+
+        await config.update(
+            "showLargeFileWarning",
+            false,
+            vscode.ConfigurationTarget.Global
+        );
+    }
+}
 
 export function registerCommands(
     context: vscode.ExtensionContext
@@ -179,6 +227,15 @@ async function createRule(
         vscode.window.showInformationMessage(
             "This encoding rule already exists."
         );
+
+        return;
+    }
+
+    if (
+        await exceedsMaxFileSize(document.uri)
+    ) {
+
+        void notifyFileTooLarge(document.uri, encoding);
 
         return;
     }
@@ -614,6 +671,17 @@ export async function reopenWithEncoding(
 
     const key =
         uri.toString();
+
+    if (
+        await exceedsMaxFileSize(uri)
+    ) {
+
+        console.log(
+            `[Encoding Rules] ${uri.fsPath} exceeds the size limit; skipping.`
+        );
+
+        return;
+    }
 
     console.log(
         "[Encoding Rules] ----------------------------------------"
